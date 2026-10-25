@@ -163,40 +163,61 @@ priority_adjustment:
 ## Bounded Windows live-priority demonstration
 
 Use this demonstration only with a local ProcNanny backend and a disposable,
-ordinary-user process. The workload below runs for 40 seconds total: 18 seconds
-of CPU work at about a 50% duty cycle, then 22 seconds idle so the recovery
-policy can restore its original priority. It never spawns or terminates another
-process.
+ordinary-user process. The workload below runs for at most 125 seconds: it
+establishes and verifies a `NORMAL_PRIORITY_CLASS` baseline for its own process,
+waits 20 seconds for monitoring startup, runs 45 seconds of CPU work at about an
+80% duty cycle, then idles for 60 seconds so the recovery policy can restore the
+original class. It does not spawn or terminate other processes and exits on its
+own. If Windows refuses the baseline change, the script reports an error and no
+demo should be started. Run a dedicated backend so the demo's action log does
+not share the potentially large regular monitoring log:
 
-1. Start the backend and frontend as described above. In **Settings**, set:
-   high CPU threshold `10`, recovery threshold `2`, monitoring interval `1`,
-   CPU history window `5`, sustained high duration `5`, recovery duration `5`,
-   and cooldown `2`. Save with automatic adjustment enabled and **Dry-run only**
-   still checked first if you want to review proposal-only behavior.
-2. When ready for the live demonstration, go back to Settings, enable automatic
-   adjustment, uncheck **Dry-run only**, check the explicit live-authorization
-   confirmation, and save. Do not make live changes by editing YAML or calling
-   the settings API directly.
-3. Start monitoring, then launch the dedicated test workload from the project
-   root in a separate PowerShell window:
+```powershell
+# Terminal 1, from the project root
+& .\.venv\Scripts\python.exe .\tests\priority_demo_backend.py
+```
+
+```powershell
+# Terminal 2
+$env:VITE_API_BASE_URL = "http://127.0.0.1:8001"
+Set-Location .\frontend
+npm.cmd run dev -- --host 127.0.0.1 --port 5174
+```
+
+The demo backend starts stopped, uses `.priority-demo\config.yaml`, and writes
+its records to `.priority-demo\procnanny.log`. It does not enable live mode
+automatically.
+
+1. Open the dashboard at `http://127.0.0.1:5174/#settings`. Set high CPU
+   threshold `60`, recovery threshold `10`, monitoring interval `2`, CPU history
+   window `6`, sustained high duration `10`, recovery duration `4`, and cooldown
+   `2`. Keep automatic adjustment disabled and **Dry-run only** checked. Save,
+   then start monitoring from the dashboard.
+2. Launch the dedicated test workload from the project root in another
+   PowerShell window:
 
    ```powershell
    & .\.venv\Scripts\python.exe .\tests\priority_demo_workload.py
    ```
 
-   Copy the printed PID and original priority. Check the actual Windows class
-   before, during, and after the run:
+   The workload prints its PID and confirms the normal-priority baseline. Check
+   that actual Windows class:
 
    ```powershell
    Get-Process -Id <PID> | Select-Object Id,ProcessName,PriorityClass
    ```
 
+3. Before the 20-second startup wait expires, open **Settings**, enable
+   automatic adjustment, uncheck **Dry-run only**, check the explicit
+   live-authorization confirmation, and save. This is the only step that enables
+   live changes; do not edit YAML or call the settings API directly.
 4. In **Priority management**, find that exact PID and observe its evaluation.
    In **Priority logs**, find the same PID and inspect the requested/resulting
-   class and timestamp. The workload exits by itself; its idle phase is intended
-   to trigger recovery before exit. Verify the final class matches the printed
-   original priority. If Windows denies a change, the log must show a failed
-   action; do not elevate privileges or retry against another process.
+   class and timestamp. Check the actual Windows class during the CPU phase.
+   The workload exits by itself; its idle phase is intended to trigger recovery
+   before exit. Verify the final class matches the printed original priority.
+   If Windows denies a change, the log must show a failed action; do not elevate
+   privileges or retry against another process.
 5. Stop monitoring and restore the normal safe configuration in Settings:
    adjustment disabled and dry-run checked. Verify the backend reports those
    settings before ending the session.
