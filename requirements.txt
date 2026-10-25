@@ -1,0 +1,5 @@
+psutil
+PyYAML
+fastapi
+uvicorn
+httpx2

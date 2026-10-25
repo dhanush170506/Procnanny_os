@@ -1,0 +1,17 @@
+cpu:
+  high_threshold_percent: 70.0
+  low_threshold_percent: 10.0
+monitoring:
+  poll_interval_seconds: 5.0
+  history_window_seconds: 30.0
+  excluded_processes: []
+nice:
+  min_value: -20
+  max_value: 19
+priority_adjustment:
+  enabled: false
+  dry_run: true
+  cooldown_seconds: 30.0
+  high_duration_seconds: 15.0
+  recovery_duration_seconds: 15.0
+  step: 1
